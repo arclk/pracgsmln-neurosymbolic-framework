@@ -37,13 +37,14 @@ import copy
 import os
 from .util import StopWatch, mergedom, fstr, colorize, stripComments
 from .mlnpreds import (Predicate, FuzzyPredicate, SoftFunctionalPredicate,
-    FunctionalPredicate)
+    FunctionalPredicate, FeaturePredicate)
 from .database import Database
 from .learning.multidb import MultipleDatabaseLearner
 import sys
 import re
 import traceback
 from .learning.bpll import BPLL
+from .learning import *
 from ..utils.project import mlnpath
 from importlib import util as imputil
 
@@ -81,8 +82,10 @@ class MLN(object):
         self._predicates = {} # maps from predicate name to the predicate instance
         self.domains = {}    # maps from domain names to list of values
         self._formulas = []   # list of MLNFormula instances
+        self._nnformulas = [] # AA list of NNFormula instances
         self.domain_decls = []
         self.weights = []
+        self._nnweights = []
         self.fixweights = []
         self.vars = {}
         self._unique_templvars = []
@@ -105,10 +108,18 @@ class MLN(object):
     @property
     def formulas(self):
         return list(self._formulas)
+    
+    @property
+    def nnformulas(self):
+        return list(self._nnformulas)
         
     @property
     def weights(self):
         return self._weights
+        
+    @property
+    def nnweights(self):
+        return self._nnweights
     
     @weights.setter
     def weights(self, wts):
@@ -226,6 +237,15 @@ class MLN(object):
                     self.domains[dom] = []
         return self
 
+    def nn_formula(self, formula, weight=0.):
+        if type(formula) is str:
+            formula = self.logic.parse_formula(formula)
+        formula.mln = self
+        formula.idx = len(self._nnformulas)
+        self._nnformulas.append(formula)
+        self._nnweights.append(weight)
+
+
     def formula(self, formula, weight=0., fixweight=False, unique_templvars=None):
         '''
         Adds a formula to this MLN. The respective domains of constants
@@ -242,14 +262,18 @@ class MLN(object):
         :param unique_templvars:    specifies a list of template variables that will create
                                     only unique combinations of expanded formulas
         '''
+        # print(formula)
         if type(formula) is str:
             formula = self.logic.parse_formula(formula)
         elif type(formula) is int:
             return self._formulas[formula]
         constants = {}
         formula.vardoms(None, constants)
+        # print(self.domains)
+        # print(constants)
         for domain, constants in constants.items():
-            for c in constants: self.constant(domain, c)
+            for c in constants: 
+                self.constant(domain, c)
         formula.mln = self
         formula.idx = len(self._formulas)
         self._formulas.append(formula)
@@ -383,6 +407,33 @@ class MLN(object):
         for value in domain[domname]:
             self.constant(domname, value)
 
+    def gsmln_learn(self, databases, method=BPLL, **params):
+        '''
+        ARCANGELO ALBERICO
+
+        Lerning function for gsmln
+        '''
+        print('learn')
+        dbs = []
+        for db in databases:
+            if isinstance(db, str):
+                db = Database.load(self, db)
+                if type(db) is list: dbs.extend(db)
+                else: dbs.append(db)
+            elif type(db) is list: dbs.extend(db)
+            else: dbs.append(db)
+        print(dbs)
+
+        newmln = self.materialize(*dbs)
+
+        if len(dbs) == 1:
+            mrf = self.ground(dbs[0])
+            # logger.debug('Loading %s-Learner' % method.__name__)
+            learner = GSMLN_L(mrf, **params)
+        print(mrf.predicates)
+        # wt = learner.run(**params)
+
+
     def learn(self, databases, method=BPLL, **params):
         '''
         Triggers the learning parameter learning process for a given set of databases.
@@ -411,7 +462,8 @@ class MLN(object):
         logger.debug('MLN domains:')
         for d in newmln.domains.items(): logger.debug(d)
         if not newmln.formulas:
-            raise Exception('No formulas in the materialized MLN.')
+            if not newmln.nnformulas:
+                raise Exception('No formulas in the materialized MLN.')
         logger.debug('MLN formulas:')
         for f in newmln.formulas: logger.debug('%s %s' % (str(f.weight).ljust(10, ' '), f))
         # run learner
@@ -707,6 +759,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                     argdoms = list(map(str, pred[1]))
                     softmutex = False
                     mutex = None
+                    features = False
                     for i, dom in enumerate(argdoms):
                         if dom[-1] in ('!', '?'):
                             if mutex is not None:
@@ -714,6 +767,8 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                             if fuzzy: raise Exception('(Soft-)functional predicates must not be fuzzy.')
                             mutex = i
                         if dom[-1] == '?': softmutex = True
+                        # AA: Here we can insert the if statement for GSMLN
+                        if dom[0] == '&': features = True
                     argdoms = [x.strip('!?') for x in argdoms]
                     pred = None
                     if mutex is not None:
@@ -724,6 +779,9 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                     elif fuzzy:
                         pred = FuzzyPredicate(predname, argdoms)
                         fuzzy = False
+                    elif features:
+                        # AA: Create the Feature Predicate
+                        pred = FeaturePredicate(predname, argdoms, True)
                     else:
                         pred = Predicate(predname, argdoms)
                         if pseudofuzzy: 
@@ -738,6 +796,9 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                         weight = line[:spacepos]
                         formula = line[spacepos:].strip()
                     try:
+                        neural = False
+                        if "$" in formula:
+                            neural = True
                         formula = mln.logic.parse_formula(formula)
                         if isHard:
                             weight = HARD  # not set until instantiation when other weights are known
@@ -750,6 +811,10 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                             fixWeightOfNextFormula = False
                             fixweight = True
                             fixedWeightTemplateIndices.append(idxTemplate)
+
+                        # print(type(formula))
+                        if neural:
+                            mln.nn_formula(formula, weight)
 
                         # expand predicate groups
                         for variant in formula.expandgrouplits():
@@ -776,9 +841,9 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
             for c in constants: mln.constant(domain, c)
     
     # save data on formula templates for materialization
-#     mln.uniqueFormulaExpansions = uniqueFormulaExpansions
+    # mln.uniqueFormulaExpansions = uniqueFormulaExpansions
     mln.templateIdx2GroupIdx = templateIdx2GroupIdx
-#     mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
+    # mln.fixedWeightTemplateIndices = fixedWeightTemplateIndices
     return mln
 
 

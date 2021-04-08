@@ -22,7 +22,7 @@ class DirectDescent(object):
         self.learner = learner
         self.wt = wt
         self.gtol = gtol
-        self.maxiter = iter
+        self.maxiter = maxiter
         self.learningRate = learningRate
         if self.learningRate < .0 or self.learningRate >= 1.:
             raise Exception('learning rate must lie in [0,1[: %s' % self.learningRate)
@@ -32,7 +32,7 @@ class DirectDescent(object):
         norm = 1
         alpha = 1.0
         step = 1
-        log.info('starting optimization with %s... (alpha=%f)' % (self.__class__.__name__, alpha))
+        # log.info('starting optimization with %s... (alpha=%f)' % (self.__class__.__name__, alpha))
         f_ = None
         while True:
             grad = self.learner.grad(self.wt)

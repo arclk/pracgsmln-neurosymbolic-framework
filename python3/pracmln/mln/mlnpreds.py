@@ -183,3 +183,13 @@ class SoftFunctionalPredicate(FunctionalPredicate):
     
     def __repr__(self):
         return '<SoftFunctionalPredicate: %s>' % str(self)
+
+
+class FeaturePredicate(Predicate):
+
+    def __init__(self, name, argdoms, features):
+        Predicate.__init__(self, name, argdoms)
+        self.features = features
+
+    def __repr__(self):
+        return '<Feature Predicate: %s>' % str(self)

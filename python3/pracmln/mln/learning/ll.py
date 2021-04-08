@@ -72,11 +72,13 @@ class LL(AbstractLearner):
             z = sum(expsums)
             if z == 0: raise SatisfiabilityException('MLN is unsatisfiable: probability masses of all possible worlds are zero.')
             self._ls = [v / z for v in expsums] 
+            # print(f'likelihoods len: {len(self._ls)}')
         return self._ls 
             
 
     def _f(self, w):
         ls = self._l(w)
+        # print(f'f = {numpy.log(ls[self._eworld_idx])}')
         return numpy.log(ls[self._eworld_idx])
                 
     
@@ -88,6 +90,7 @@ class LL(AbstractLearner):
                 if widx == self._eworld_idx:
                     grad[fidx] += count
                 grad[fidx] -= count * ls[widx]
+        # print(f'grad = {grad}')
         return grad 
 
 
@@ -95,6 +98,15 @@ class LL(AbstractLearner):
         self._stat = []
         grounder = DefaultGroundingFactory(self.mrf)
         eworld = list(self.mrf.evidence)
+        # world_iter = self.mrf.iterallworlds()
+        # world_1 = next(world_iter)[1]
+        # print(world_1)
+        # self.mrf.print_world_atoms(world_1)
+        # self.mrf.print_world_vars(world_1)
+        # for gf in grounder.itergroundings():
+        #     print(gf.idx, gf)
+        #     print(gf([0,0,0,0,0,0,0,1]))
+        # print(eworld)
         if self.verbose:
             bar = ProgressBar(steps=self.mrf.countworlds(), color='green')
         for widx, world in self.mrf.iterallworlds():
@@ -108,3 +120,21 @@ class LL(AbstractLearner):
             for gf in grounder.itergroundings():
                 truth = gf(world)
                 if truth != 0: values[gf.idx] = values.get(gf.idx, 0) + truth
+        # print(self._stat)
+
+
+class GSMLN_L(LL):
+
+    def __init__(self, mrf, **params):
+        LL.__init__(self, mrf, **params)
+
+
+    def _f(self, w):
+        return -(w[0]-1)**2
+        # return 0
+                
+    
+    def _grad(self, w):
+        return [-2*(w[0]-1), 0]
+        # return numpy.zeros(len(self.mrf.formulas), numpy.float64)
+

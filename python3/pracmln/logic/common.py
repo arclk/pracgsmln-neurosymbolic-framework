@@ -25,7 +25,7 @@ import sys
 
 from dnutils import logs, ifnone
 
-from .grammar import StandardGrammar, PRACGrammar
+from .grammar import StandardGrammar, PRACGrammar, GSMLNGrammar
 from ..mln.util import fstr, dict_union, colorize
 from ..mln.errors import NoSuchDomainError, NoSuchPredicateError
 from ..mln.constants import HARD, predicate_color, inherit, auto
@@ -61,7 +61,7 @@ class Logic(object):
         :param grammar:     an instance of grammar.Grammar
         :param mln:         the MLN instance that the logic shall be tied to.
         """
-        if grammar not in ('StandardGrammar', 'PRACGrammar'):
+        if grammar not in ('StandardGrammar', 'PRACGrammar', 'GSMLNGrammar'):
             raise Exception('Invalid grammar: %s' % grammar)
         self.grammar = eval(grammar)(self)
         self.mln = mln
@@ -128,6 +128,31 @@ class Logic(object):
             raise Exception("%s does not implement gndatoms" % str(type(self)))
         
         
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
+    
+    class NNFormula(Constraint):
+
+        def __init__(self, formula, mln=None, idx=None):
+            self.mln = mln
+            self.formula = formula
+            self.predicates = []
+            for i in self.formula:
+                self.predicates.append(mln.predicate(i[0]))
+            
+            if idx == auto and mln is not None:
+                self.idx = len(mln.formulas)
+            else:
+                self.idx = idx
+
+
+        def __str__(self):
+            return 'NNFormula'
+
+
+        def expandgrouplits(self):
+            return []
+
+      
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
       
@@ -2518,12 +2543,16 @@ class Logic(object):
         a new instance of it.
         """
         return clazz(*args, **kwargs)
+
+    def nnformula(self, *args, **kwargs):
+        return Logic.NNFormula(*args, **kwargs)
     
 
         
     
 # this is a little hack to make nested classes pickleable
 Constraint = Logic.Constraint
+NNFormula = Logic.NNFormula
 Formula = Logic.Formula
 ComplexFormula = Logic.ComplexFormula
 Conjunction = Logic.Conjunction

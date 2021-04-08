@@ -1,0 +1,12 @@
+//predicate declarations
+
+Window(id,&profile)
+WindowBetween(id,id,&interresidues)
+SequenceFeatures(sequence,&seqfeatures)
+BelongsToSequence(id,sequence)
+Partners(id,id)
+
+// NN rule for residue contact prediction
+? Window(a,$pa) ^ Window(b,$pb) ^ WindowBetween(a,b,$wab) ^ SequenceFeatures(s,$fs) ^ BelongsToSequence(a,s) => Partners(a,b)
+
+

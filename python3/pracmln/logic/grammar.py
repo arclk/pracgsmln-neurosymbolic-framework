@@ -37,6 +37,7 @@ class TreeBuilder(object):
         self.reset()
     
     def trigger(self, a, loc, toks, op):
+        # print(a, toks, op)
         if op == 'litgroup':
             negated = False
             if toks[0] == '!' or toks[0] == '*':
@@ -104,7 +105,9 @@ class TreeBuilder(object):
                 else:
                     fixed_params, op, count = list(toks[1]), toks[2], int(toks[3])
                 self.stack.append(self.logic.count_constraint(pred, pred_params, fixed_params, op, count))
-        return self.stack[-1]
+        # elif op == 'nn':
+        #     print(f'atom: {toks[0][1]}') # Neural Formula
+        # return self.stack[-1]
         
     def reset(self):
         self.stack = []
@@ -367,78 +370,207 @@ class PRACGrammar(Grammar):
         return identifier[0] == '?' or identifier[0] == "+"
 
 
-if __name__ == '__main__':
+# ARCANGELO ALBERICO
+class GSMLNGrammar(Grammar):
+    """docstring for GSMLNGrammar"""
+    def __init__(self, logic):
+        self.logic = logic
 
-    # f = '(a(x) ^ b(u) v !(c(h) v (r =/= k) ^ !(d(i) ^ !e(x) ^ g(x)))) => EXIST ?a,?b (f(x) ^ b(c))'
-    from pracmln.mln.base import MLN
-    from pracmln.mln.database import Database
-    mln = MLN(grammar='PRACGrammar')
-    # mln << 'foo(x, y)'
-    mln << 'bar(x)'
-    # mln << 'numberEats(k,n)'
-    # mln << 'eats(p,m)'
-    # mln << 'rel(x,y)'
-    mln << 'a(s)'
-    mln << 'b(s)'
-    mln << 'c(s)'
-    # mln << 'd(s)'
-    # mln << 'e(s)'
-    # mln << 'g(s)'
-    # mln << 'f(s)'
+        identifierCharacter = alphanums + '_' + '-' + "'"
+        ucCharacter = alphas[:26]
+        lcCharacter = alphas[26:]
+        lcName = Word(lcCharacter, alphanums + '_')
+        
+        openRB = Literal("(").suppress()
+        closeRB = Literal(")").suppress()
+        
+        # modified to consider '&' in predicate declaration
+        domName = Combine(Optional(Literal(':') | Literal('&')) + lcName + Optional(Literal('!') | Literal('?')))
+        
+        constant = Word(identifierCharacter) | Word(nums) | Combine(Literal('"') + Word(printables.replace('"', '')) + Literal('"'))
+        variable = Word(lcCharacter, identifierCharacter)
+        
+        # modified to consider '$' in formula declaration
+        atomArgs = Group(delimitedList(constant | Combine(Optional(Literal("+")) + variable)))
+        neuralAtomArgs = Group(delimitedList(constant | Combine(Literal("$") + variable)))
+        predDeclArgs = Group(delimitedList(domName))
+        
+        predName = Word(identifierCharacter)
+        
+        atom = Group(predName + openRB + atomArgs + closeRB)
+        neuralAtom = Group(predName + openRB + neuralAtomArgs + closeRB)
+
+        literal = Optional(Literal("!") | Literal("*")) + (atom | neuralAtom)
+        gndAtomArgs = Group(delimitedList(constant))
+        gndLiteral = Optional(Literal("!")) + Group(predName + openRB + gndAtomArgs + closeRB)
+        predDecl = Group(predName + openRB + predDeclArgs + closeRB) + StringEnd()
+        
+        varList = Group(delimitedList(variable))
+        count_constraint = Literal("count(").suppress() + atom + Optional(Literal("|").suppress() + varList) + Literal(")").suppress() + (Literal("=") | Literal(">=") | Literal("<=")) + Word(nums)
+        
+        formula = Forward()
+        exist = Literal("EXIST ").suppress() + Group(delimitedList(variable)) + openRB + Group(formula) + closeRB
+        equality = (constant|variable) + Literal("=").suppress() + (constant|variable)
+        inequality = (constant|variable) + Literal('=/=').suppress() + (constant|variable)
+        negation = Literal("!").suppress() + openRB + Group(formula) + closeRB
+        item = literal | exist | equality | openRB + formula + closeRB | negation
+        disjunction = Group(item) + ZeroOrMore(Literal("v").suppress() + Group(item))
+        conjunction = Group(disjunction) + ZeroOrMore(Literal("^").suppress() + Group(disjunction))
+        implication = Group(conjunction) + Optional(Literal("=>").suppress() + Group(conjunction))
+        biimplication = Group(implication) + Optional(Literal("<=>").suppress() + Group(implication))
+        constraint = biimplication | count_constraint
+        formula << constraint
+    
+        def lit_parse_action(a, b, c): tree.trigger(a,b,c,'lit')
+        def gndlit_parse_action(a, b, c): tree.trigger(a,b,c,'gndlit')
+        def neg_parse_action(a, b, c): tree.trigger(a,b,c,'!')
+        def disjunction_parse_action(a, b, c): tree.trigger(a,b,c,'v')
+        def conjunction_parse_action(a, b, c): tree.trigger(a,b,c,'^')
+        def exist_parse_action(a, b, c): tree.trigger(a,b,c,"ex")
+        def implication_parse_action(a, b, c): tree.trigger(a,b,c,"=>")
+        def biimplication_parse_action(a, b, c): tree.trigger(a,b,c,"<=>")
+        def equality_parse_action(a, b, c): tree.trigger(a,b,c,"=")
+        def inequality_parse_action(a, b, c): tree.trigger(a,b,c,"!=")
+        def count_constraint_parse_action(a, b, c): tree.trigger(a,b,c,'count')
+        def neural_atom_parse_action(a, b, c): self.print_atoms(a,b,c,'nn')
+        
+
+        tree = TreeBuilder(logic)
+        literal.setParseAction(lit_parse_action)
+        gndLiteral.setParseAction(gndlit_parse_action)
+        negation.setParseAction(neg_parse_action)
+        disjunction.setParseAction(disjunction_parse_action)
+        conjunction.setParseAction(conjunction_parse_action)
+        exist.setParseAction(exist_parse_action)
+        implication.setParseAction(implication_parse_action)
+        biimplication.setParseAction(biimplication_parse_action)
+        equality.setParseAction(equality_parse_action)
+        inequality.setParseAction(inequality_parse_action)
+        count_constraint.setParseAction(count_constraint_parse_action)
+        neuralAtom.setParseAction(neural_atom_parse_action)
+        
+        self.tree = tree
+        self.formula = formula + StringEnd()
+        self.predDecl = predDecl
+        self.literal = literal
+        self.neuralAtom = neuralAtom
+        self.neuralAtomArgs = neuralAtomArgs
+        self.nn = []
 
     
-    f = 'a|b|c(s) => (bar(y) <=> bar(x))'
-    # f = 'a|b|c(s)'
-    print('mln:')
-    mln.write()
-    print('---------------------------------------------------')
+
+    def parse_formula(self, s):
+        self.nn = []    
+        self.tree.reset()
+        self.formula.parseString(s)
+        if '$' in s: 
+            # print('nn')
+            return self.logic.nnformula(self.nn, self.logic.mln)
+        else:
+            # print('formula')
+            constr = self.tree.getConstraint()
+            return constr
+
+    def print_atoms(self, a, loc, toks, op):
+        self.nn.append(toks[0].asList())
+        # print(toks[0])
+
+    def isvar(self, identifier):
+        return identifier[0].islower() or identifier[0] == '+'
+            
+        
+        
+# if __name__ == '__main__':
+
+#     # f = '(a(x) ^ b(u) v !(c(h) v (r =/= k) ^ !(d(i) ^ !e(x) ^ g(x)))) => EXIST ?a,?b (f(x) ^ b(c))'
+#     from pracmln.mln.base import MLN
+#     from pracmln.mln.database import Database
+#     mln = MLN(grammar='PRACGrammar')
+#     # mln << 'foo(x, y)'
+#     mln << 'bar(x)'
+#     # mln << 'numberEats(k,n)'
+#     # mln << 'eats(p,m)'
+#     # mln << 'rel(x,y)'
+#     mln << 'a(s)'
+#     mln << 'b(s)'
+#     mln << 'c(s)'
+#     # mln << 'd(s)'
+#     # mln << 'e(s)'
+#     # mln << 'g(s)'
+#     # mln << 'f(s)'
+
+    
+#     f = 'a|b|c(s) => (bar(y) <=> bar(x))'
+#     # f = 'a|b|c(s)'
+#     print('mln:')
+#     mln.write()
+#     print('---------------------------------------------------')
+#     f = mln.logic.grammar.parse_formula(f)
+#     print(f, '===================================================================================')
+#     f.print_structure()
+#     print(list(f.literals()))
+#     # print mln.logic.parse_formula('bar(x)') in f.literals()
+#     print('f:', f)
+
+#     mln << 'coreference(a,b)'
+#     mln << 'distance(d,e,f)'
+#     mln.formula(f)
+
+#     # f = '!a|b|c(s) => (bar(y) <=> bar(x))'
+#     # f= '!(FORALL s (has_sense(?w1,s))) => coreference(?w1,?w2)'
+#     f = 'a|b|c(s) ^ bar(y) ^ bar(x)'
+#     # print 'mln:'
+#     f = mln.logic.grammar.parse_formula(f)
+#     mln.write()
+#     # print f, '==================================================================================='
+#     # f.print_structure()
+#     # print 'repr of f', repr(f)
+#     # print 'list f.literals', list(f.literals())
+#     # print 'parse_formula', mln.logic.parse_formula('bar(x)') in f.literals()
+#     # print 'f', f
+
+#     cnf = f.cnf()
+#     # print 'structure:'
+#     cnf.print_structure()
+#     # print 'cnf:',cnf
+#     mln.formula(cnf)
+
+
+#     db = Database(mln)
+#     matmln = mln.materialize(db)
+#     matmln.write()
+# #     test = ['!a(k)',
+# #             'a(c) ^ b(g)',
+# #             'b(x) v !a(l) ^ b(x)',
+# #             '!(a(g)) => ((!(f(x) v b(a))))',
+# #             "f(h) v (g(?h) <=> !f(?k) ^ d(e))",
+# #             'f(t) ^ ?x = y'
+# #             ]
+# #     for t in test:
+# #         print t
+# #         mln.logic.grammar.tree.reset()
+# #         mln.logic.grammar.parse_formula(t).print_structure()
+# #         print t
+
+if __name__=='__main__':
+    from ..mln.base import MLN
+    from ..mln.database import Database
+    mln = MLN(grammar='GSMLNGrammar')
+    mln << 'a(x)'
+    mln << 'b(x)'
+    mln << 'c(x)'
+    mln << 'd(x)'
+    mln << 'e(x)'
+    mln << 'f(x)'
+    mln << 'g(x)'
+
+    f = "a(x) <=> b(x)"
+    # f = "((a(x) ^ b(x)) v (c(x) ^ !(d(x) ^ e(x) ^ g(x)))) => f(x)"
+    # f = "(a(x) v (b(x) ^ c(x))) => f(x)"
+
     f = mln.logic.grammar.parse_formula(f)
-    print(f, '===================================================================================')
     f.print_structure()
     print(list(f.literals()))
-    # print mln.logic.parse_formula('bar(x)') in f.literals()
-    print('f:', f)
-
-    mln << 'coreference(a,b)'
-    mln << 'distance(d,e,f)'
-    mln.formula(f)
-
-    # f = '!a|b|c(s) => (bar(y) <=> bar(x))'
-    # f= '!(FORALL s (has_sense(?w1,s))) => coreference(?w1,?w2)'
-    f = 'a|b|c(s) ^ bar(y) ^ bar(x)'
-    # print 'mln:'
-    f = mln.logic.grammar.parse_formula(f)
-    mln.write()
-    # print f, '==================================================================================='
-    # f.print_structure()
-    # print 'repr of f', repr(f)
-    # print 'list f.literals', list(f.literals())
-    # print 'parse_formula', mln.logic.parse_formula('bar(x)') in f.literals()
-    # print 'f', f
-
-    cnf = f.cnf()
-    # print 'structure:'
-    cnf.print_structure()
-    # print 'cnf:',cnf
-    mln.formula(cnf)
-
-
-    db = Database(mln)
-    matmln = mln.materialize(db)
-    matmln.write()
-#     test = ['!a(k)',
-#             'a(c) ^ b(g)',
-#             'b(x) v !a(l) ^ b(x)',
-#             '!(a(g)) => ((!(f(x) v b(a))))',
-#             "f(h) v (g(?h) <=> !f(?k) ^ d(e))",
-#             'f(t) ^ ?x = y'
-#             ]
-#     for t in test:
-#         print t
-#         mln.logic.grammar.tree.reset()
-#         mln.logic.grammar.parse_formula(t).print_structure()
-#         print t
-
 
 
 

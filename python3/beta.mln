@@ -1,0 +1,34 @@
+//predicate declarations
+
+Residue(id,aminoacid)
+Succ(id,id)
+BelongsToStrand(id,strand)
+Window(id,&profile)
+WindowBetween(id,id,&interresidues)
+SequenceFeatures(sequence,&seqfeatures)
+BelongsToSequence(id,sequence)
+StrandFeatures(strand,&strfeatures)
+WindowBetweenStrands(strand,strand,&interstrands)
+StrandContact(strand,strand)
+Partners(id,id)
+
+// NN rule for residue contact prediction
+? Window(a,$pa) ^ Window(b,$pb) ^ WindowBetween(a,b,$wab) ^ SequenceFeatures(s,$fs) ^ BelongsToSequence(a,s) => Partners(a,b)
+
+// NN rule for strand contact prediction
+? StrandFeatures(r,$fr) ^ StrandFeatures(s,$fs) ^ WindowBetweenStrands(r,s,$wrs) => StrandContact(r,s)
+
+// Hard rules for strand contact
+!StrandContact(s,s). 
+StrandContact(r,s) => StrandContact(s,r). 
+Partners(a,b) ^ BelongsToStrand(a,r) ^ BelongsToStrand(b,s) => StrandContact(r,s). 
+EXIST s (StrandContact(r,s)).
+
+// Hard rules for residue contact
+!Partners(a,a).
+Partners(a,b) => Partners(b,a).
+BelongsToStrand(a,s) ^ BelongsToStrand(b,s) => !Partners(a,b). 
+Partners(a,b) ^ BelongsToStrand(b,s) ^ BelongsToStrand(c,s) ^ !(b=c) => !Partners(a,c). 
+
+? !StrandContact(r,s)
+? !Partners(a,b) 

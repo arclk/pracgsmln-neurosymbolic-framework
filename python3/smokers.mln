@@ -1,0 +1,7 @@
+Cancer(person)
+Friends(person,person)
+Smokes(person)
+
+
+1 Smokes($x) => Cancer($x)
+2 Friends($x,$y) => (Smokes($x) <=> Smokes($y))

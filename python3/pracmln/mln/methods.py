@@ -26,7 +26,7 @@ from .inference.exact import EnumerationAsk
 from .inference.wcspinfer import WCSPInference
 from .inference.maxwalk import SAMaxWalkSAT
 from .learning.cll import CLL, DCLL
-from .learning.ll import LL
+from .learning.ll import LL, GSMLN_L
 from .learning.bpll import BPLL, DPLL , BPLL_CG, DBPLL_CG
 
 class Enum(object):
@@ -90,7 +90,8 @@ LearningMethods = Enum(
       (DPLL, '[discriminative] pseudo-log-likelihood'),
       (BPLL, 'pseudo-log-likelihood'),
       (BPLL_CG, 'pseudo-log-likelihood (fast conjunction grounding)'),
-      (DBPLL_CG, '[discriminative] pseudo-log-likelihood (fast conjunction grounding)')
+      (DBPLL_CG, '[discriminative] pseudo-log-likelihood (fast conjunction grounding)'),
+      (GSMLN_L, 'Prova')
 #     'MLNBoost': 'MLN-BOOST',
 #     'WPLL': 'Weighted Pseudo-likelihood',
       #"SLL": "sampling-based log-likelihood via direct descent",
