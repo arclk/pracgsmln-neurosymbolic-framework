@@ -37,7 +37,6 @@ class TreeBuilder(object):
         self.reset()
     
     def trigger(self, a, loc, toks, op):
-        # print(a, toks, op)
         if op == 'litgroup':
             negated = False
             if toks[0] == '!' or toks[0] == '*':
@@ -51,6 +50,8 @@ class TreeBuilder(object):
             self.stack.append(self.logic.litgroup(negated, toks[:-1], toks[-1], self.logic.mln))
         if op == 'lit':
             negated = False
+            # AA check on the literal if contains a neural component
+            neural = False
             if toks[0] == '!' or toks[0] == '*':
                 if toks[0] == '*':
                     negated = 2
@@ -59,7 +60,13 @@ class TreeBuilder(object):
                 toks = toks[1]
             else:
                 toks = toks[0]
-            self.stack.append(self.logic.lit(negated, toks[0], toks[1], self.logic.mln))
+            for el in toks[1]:
+                if "$" in el:
+                    neural = True
+            if neural:
+                self.stack.append(self.logic.lit(negated, toks[0], toks[1], self.logic.mln, neural))
+            else:
+                self.stack.append(self.logic.lit(negated, toks[0], toks[1], self.logic.mln, neural))
         elif op == '!':
             if len(toks) == 1:
                 formula = self.logic.negation(self.stack[-1:], self.logic.mln)
@@ -107,7 +114,7 @@ class TreeBuilder(object):
                 self.stack.append(self.logic.count_constraint(pred, pred_params, fixed_params, op, count))
         # elif op == 'nn':
         #     print(f'atom: {toks[0][1]}') # Neural Formula
-        # return self.stack[-1]
+        return self.stack[-1]
         
     def reset(self):
         self.stack = []
@@ -391,16 +398,16 @@ class GSMLNGrammar(Grammar):
         variable = Word(lcCharacter, identifierCharacter)
         
         # modified to consider '$' in formula declaration
-        atomArgs = Group(delimitedList(constant | Combine(Optional(Literal("+")) + variable)))
-        neuralAtomArgs = Group(delimitedList(constant | Combine(Literal("$") + variable)))
+        atomArgs = Group(delimitedList(constant | Combine(Optional(Literal("+") | Literal("$")) + variable)))
+        # neuralAtomArgs = Group(delimitedList(constant | Combine(Literal("$") + variable)))
         predDeclArgs = Group(delimitedList(domName))
         
         predName = Word(identifierCharacter)
         
         atom = Group(predName + openRB + atomArgs + closeRB)
-        neuralAtom = Group(predName + openRB + neuralAtomArgs + closeRB)
+        # neuralAtom = Group(predName + openRB + neuralAtomArgs + closeRB)
 
-        literal = Optional(Literal("!") | Literal("*")) + (atom | neuralAtom)
+        literal = Optional(Literal("!") | Literal("*")) + atom 
         gndAtomArgs = Group(delimitedList(constant))
         gndLiteral = Optional(Literal("!")) + Group(predName + openRB + gndAtomArgs + closeRB)
         predDecl = Group(predName + openRB + predDeclArgs + closeRB) + StringEnd()
@@ -432,7 +439,7 @@ class GSMLNGrammar(Grammar):
         def equality_parse_action(a, b, c): tree.trigger(a,b,c,"=")
         def inequality_parse_action(a, b, c): tree.trigger(a,b,c,"!=")
         def count_constraint_parse_action(a, b, c): tree.trigger(a,b,c,'count')
-        def neural_atom_parse_action(a, b, c): self.print_atoms(a,b,c,'nn')
+        # def neural_atom_parse_action(a, b, c): self.print_atoms(a,b,c,'nn')
         
 
         tree = TreeBuilder(logic)
@@ -447,36 +454,36 @@ class GSMLNGrammar(Grammar):
         equality.setParseAction(equality_parse_action)
         inequality.setParseAction(inequality_parse_action)
         count_constraint.setParseAction(count_constraint_parse_action)
-        neuralAtom.setParseAction(neural_atom_parse_action)
+        # neuralAtom.setParseAction(neural_atom_parse_action)
         
         self.tree = tree
         self.formula = formula + StringEnd()
         self.predDecl = predDecl
         self.literal = literal
-        self.neuralAtom = neuralAtom
-        self.neuralAtomArgs = neuralAtomArgs
-        self.nn = []
+        # self.neuralAtom = neuralAtom
+        # self.neuralAtomArgs = neuralAtomArgs
+        # self.nn = []
 
     
 
-    def parse_formula(self, s):
-        self.nn = []    
-        self.tree.reset()
-        self.formula.parseString(s)
-        if '$' in s: 
-            # print('nn')
-            return self.logic.nnformula(self.nn, self.logic.mln)
-        else:
-            # print('formula')
-            constr = self.tree.getConstraint()
-            return constr
+    # def parse_formula(self, s):
+    #     self.nn = []    
+    #     self.tree.reset()
+    #     self.formula.parseString(s)
+    #     if '$' in s: 
+    #         # print('nn')
+    #         return self.logic.nnformula(self.nn, self.logic.mln)
+    #     else:
+    #         # print('formula')
+    #         constr = self.tree.getConstraint()
+    #         return constr
 
-    def print_atoms(self, a, loc, toks, op):
-        self.nn.append(toks[0].asList())
-        # print(toks[0])
+    # def print_atoms(self, a, loc, toks, op):
+    #     self.nn.append(toks[0].asList())
+    #     # print(toks[0])
 
     def isvar(self, identifier):
-        return identifier[0].islower() or identifier[0] == '+'
+        return identifier[0].islower() or identifier[0] == '+' or identifier[0] == '$'
             
         
         

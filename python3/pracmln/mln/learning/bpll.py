@@ -203,5 +203,3 @@ class DBPLL_CG(DPLL):
         for _ in grounder.itergroundings(): pass
         self._stat = grounder._stat
         self._varidx2fidx = grounder._varidx2fidx
-
-

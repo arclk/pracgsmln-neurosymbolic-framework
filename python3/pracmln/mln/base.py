@@ -246,7 +246,7 @@ class MLN(object):
         self._nnweights.append(weight)
 
 
-    def formula(self, formula, weight=0., fixweight=False, unique_templvars=None):
+    def formula(self, formula, weight=0., fixweight=False, unique_templvars=None, neural=False):
         '''
         Adds a formula to this MLN. The respective domains of constants
         are updated, if necessary. If `formula` is an integer, returns the formula
@@ -262,7 +262,7 @@ class MLN(object):
         :param unique_templvars:    specifies a list of template variables that will create
                                     only unique combinations of expanded formulas
         '''
-        # print(formula)
+        # print(formula, type(formula))
         if type(formula) is str:
             formula = self.logic.parse_formula(formula)
         elif type(formula) is int:
@@ -276,6 +276,9 @@ class MLN(object):
                 self.constant(domain, c)
         formula.mln = self
         formula.idx = len(self._formulas)
+        # AA: add the neural flag to formulas
+        # print(neural)
+        formula.neural = neural
         self._formulas.append(formula)
         self.weights.append(weight)
         self.fixweights.append(fixweight)
@@ -360,7 +363,7 @@ class MLN(object):
         for i, template in mln_.iterformulas():
             for variant in template.template_variants():
                 idx = len(mln__._formulas)
-                f = mln__.formula(variant, weight=template.weight, fixweight=mln_.fixweights[i])
+                f = mln__.formula(variant, weight=template.weight, fixweight=mln_.fixweights[i], neural=template.neural)
                 f.idx = idx
         mln__._materialized = True
         return mln__
@@ -391,7 +394,7 @@ class MLN(object):
         logger.debug('creating ground MRF...')
         mrf = MRF(self, db)
         for pred in self.predicates:
-            for gndatom in pred.groundatoms(self, mrf.domains):
+            for gndatom in pred.groundatoms(self, mrf.domains, db):
                 mrf.gndatom(gndatom.predname, *gndatom.args)
         evidence = dict([(atom, value) for atom, value in db.evidence.items() if mrf.gndatom(atom) is not None])
         mrf.set_evidence(evidence, erase=False)
@@ -407,13 +410,13 @@ class MLN(object):
         for value in domain[domname]:
             self.constant(domname, value)
 
+
     def gsmln_learn(self, databases, method=BPLL, **params):
         '''
         ARCANGELO ALBERICO
 
         Lerning function for gsmln
         '''
-        print('learn')
         dbs = []
         for db in databases:
             if isinstance(db, str):
@@ -422,16 +425,21 @@ class MLN(object):
                 else: dbs.append(db)
             elif type(db) is list: dbs.extend(db)
             else: dbs.append(db)
-        print(dbs)
+        # print(dbs)
 
-        newmln = self.materialize(*dbs)
+        # newmln = self.materialize(*dbs)
 
         if len(dbs) == 1:
             mrf = self.ground(dbs[0])
             # logger.debug('Loading %s-Learner' % method.__name__)
             learner = GSMLN_L(mrf, **params)
-        print(mrf.predicates)
-        # wt = learner.run(**params)
+        # print(mrf.formulas)
+        # mrf_iter = mrf.itergroundings()
+        # for item in mrf_iter:
+        #     print(item.cnf().children[0].vardoms())
+        wt = learner.run(**params)
+        # newmln.weights = wt
+        # return newmln
 
 
     def learn(self, databases, method=BPLL, **params):
@@ -462,13 +470,13 @@ class MLN(object):
         logger.debug('MLN domains:')
         for d in newmln.domains.items(): logger.debug(d)
         if not newmln.formulas:
-            if not newmln.nnformulas:
-                raise Exception('No formulas in the materialized MLN.')
+            raise Exception('No formulas in the materialized MLN.')
         logger.debug('MLN formulas:')
         for f in newmln.formulas: logger.debug('%s %s' % (str(f.weight).ljust(10, ' '), f))
         # run learner
         if len(dbs) == 1:
             mrf = newmln.ground(dbs[0])
+            # mrf.print_evidence_atoms()
             logger.debug('Loading %s-Learner' % method.__name__)
             learner = method(mrf, **params)
         else:
@@ -760,6 +768,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                     softmutex = False
                     mutex = None
                     features = False
+                    feature_idx = None
                     for i, dom in enumerate(argdoms):
                         if dom[-1] in ('!', '?'):
                             if mutex is not None:
@@ -768,7 +777,9 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                             mutex = i
                         if dom[-1] == '?': softmutex = True
                         # AA: Here we can insert the if statement for GSMLN
-                        if dom[0] == '&': features = True
+                        if dom[0] == '&': 
+                            features = True
+                            feature_idx = i
                     argdoms = [x.strip('!?') for x in argdoms]
                     pred = None
                     if mutex is not None:
@@ -779,11 +790,12 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                     elif fuzzy:
                         pred = FuzzyPredicate(predname, argdoms)
                         fuzzy = False
+                    # AA
                     elif features:
-                        # AA: Create the Feature Predicate
-                        pred = FeaturePredicate(predname, argdoms, True)
+                        # print(predname, argdoms)
+                        pred = FeaturePredicate(predname, argdoms, features, feature_idx)
                     else:
-                        pred = Predicate(predname, argdoms)
+                        pred = Predicate(predname, argdoms, features)
                         if pseudofuzzy: 
                             mln.fuzzypreds.append(predname)
                             pseudofuzzy = False
@@ -798,6 +810,7 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                     try:
                         neural = False
                         if "$" in formula:
+                            # print('eccolo')
                             neural = True
                         formula = mln.logic.parse_formula(formula)
                         if isHard:
@@ -813,14 +826,14 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                             fixedWeightTemplateIndices.append(idxTemplate)
 
                         # print(type(formula))
-                        if neural:
-                            mln.nn_formula(formula, weight)
+                        # if neural:
+                        #     mln.nn_formula(formula, weight)
 
                         # expand predicate groups
                         for variant in formula.expandgrouplits():
                             mln.formula(variant, weight=weight,
                                         fixweight=fixweight,
-                                        unique_templvars=uniquevars)
+                                        unique_templvars=uniquevars, neural=neural)
 
                         if uniquevars:
                             uniquevars = None

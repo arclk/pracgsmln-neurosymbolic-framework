@@ -26,8 +26,9 @@ from .inference.exact import EnumerationAsk
 from .inference.wcspinfer import WCSPInference
 from .inference.maxwalk import SAMaxWalkSAT
 from .learning.cll import CLL, DCLL
-from .learning.ll import LL, GSMLN_L
+from .learning.ll import LL
 from .learning.bpll import BPLL, DPLL , BPLL_CG, DBPLL_CG
+from .learning.gsmln import GSMLN_L
 
 class Enum(object):
     

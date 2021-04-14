@@ -129,31 +129,6 @@ class Logic(object):
         
         
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
-    
-    class NNFormula(Constraint):
-
-        def __init__(self, formula, mln=None, idx=None):
-            self.mln = mln
-            self.formula = formula
-            self.predicates = []
-            for i in self.formula:
-                self.predicates.append(mln.predicate(i[0]))
-            
-            if idx == auto and mln is not None:
-                self.idx = len(mln.formulas)
-            else:
-                self.idx = idx
-
-
-        def __str__(self):
-            return 'NNFormula'
-
-
-        def expandgrouplits(self):
-            return []
-
-      
-#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
       
     class Formula(Constraint): 
@@ -217,7 +192,14 @@ class Logic(object):
         @property
         def ishard(self):
             return self.weight == HARD
-        
+       
+
+        def check_neural(self):
+            for literal in self.atomic_constituents():
+                if literal.neural:
+                    return True
+            return False
+
         
         def contains_gndatom(self, gndatomidx):
             """
@@ -462,7 +444,8 @@ class Logic(object):
             # if all variables have been grounded...
             if not variables:
                 gf = self.ground(mrf, assignment, simplify, domains)
-                yield gf
+                if gf:
+                    yield gf
                 return
             # ground the first variable...
             varname, domname = variables.popitem()
@@ -676,6 +659,9 @@ class Logic(object):
             children = []
             for child in self.children:
                 gndchild = child.ground(mrf, assignment, simplify, partial)
+                # AA for neural children if the grounding is not valid
+                if gndchild is None:
+                    return None
                 children.append(gndchild)
             gndformula = self.mln.logic.create(type(self), children, mln=self.mln, idx=self.idx)
             if simplify:
@@ -729,6 +715,38 @@ class Logic(object):
             return prednames
 
 
+#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
+    
+    class NNFormula(ComplexFormula):
+
+        def __init__(self, formula, mln=None, idx=None, neural=False):
+            self.mln = mln
+            if idx == auto and mln is not None:
+                self.idx = len(mln.formulas)
+            else:
+                self.idx = idx
+            self.neural = neural
+
+            # self.mln = mln
+            # self.formula = formula
+            # self.predicates = []
+            # for i in self.formula:
+            #     self.predicates.append(mln.predicate(i[0]))
+            
+            # if idx == auto and mln is not None:
+            #     self.idx = len(mln.formulas)
+            # else:
+            #     self.idx = idx
+
+
+        def __str__(self):
+            return 'NNFormula'
+
+
+        # def expandgrouplits(self):
+        #     return []
+
+      
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
     class Conjunction(ComplexFormula):
@@ -963,11 +981,13 @@ class Logic(object):
         Represents a literal.
         """
 
-        def __init__(self, negated, predname, args, mln, idx=None):
+        def __init__(self, negated, predname, args, mln, neural=False, idx=None):
             Formula.__init__(self, mln, idx)
             self.negated = negated
             self.predname = predname
             self.args = list(args)
+            # AA argument that indicate if the literal is neural
+            self.neural = neural
 
 
         @property
@@ -1066,7 +1086,10 @@ class Logic(object):
                 atom = "%s(%s)" % (self.predname, ",".join(args))
                 gndatom = mrf.gndatom(atom)
                 if gndatom is None:
-                    raise Exception('Could not ground "%s". This atom is not among the ground atoms.' % atom)
+                    if self.neural:
+                        return None
+                    else:
+                        raise Exception('Could not ground "%s". This atom is not among the ground atoms.' % atom)
                 # simplify if necessary
                 if simplify and gndatom.truth(mrf.evidence) is not None:
                     truth = gndatom.truth(mrf.evidence)
@@ -1088,13 +1111,13 @@ class Logic(object):
         def _ground_template(self, assignment):
             args = [assignment.get(x, x) for x in self.args]
             if self.negated == 2: # template
-                return [self.mln.logic.lit(False, self.predname, args, mln=self.mln), self.mln.logic.lit(True, self.predname, args, mln=self.mln)]
+                return [self.mln.logic.lit(False, self.predname, args, self.mln, self.neural), self.mln.logic.lit(True, self.predname, args, self.mln, self.neural)]
             else:
-                return [self.mln.logic.lit(self.negated, self.predname, args, mln=self.mln)]
+                return [self.mln.logic.lit(self.negated, self.predname, args, self.mln, self.neural)]
 
 
         def copy(self, mln=None, idx=inherit):
-            return self.mln.logic.lit(self.negated, self.predname, self.args, mln=ifnone(mln, self.mln), idx=self.idx if idx is inherit else idx)
+            return self.mln.logic.lit(self.negated, self.predname, self.args, ifnone(mln, self.mln), self.neural, idx=self.idx if idx is inherit else idx)
 
 
         def truth(self, world):
