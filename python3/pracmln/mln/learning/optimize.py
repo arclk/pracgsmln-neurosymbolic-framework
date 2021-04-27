@@ -2,6 +2,7 @@
 import sys
 import time
 import math
+import torch
 
 from dnutils import logs
 
@@ -169,6 +170,23 @@ class DiagonalNewton(object):
         
         return numpy.asarray(wt.transpose())[0]
 
+
+class GSMLNOpt(object):
+
+    def __init__(self, wt, learner, **optParams):
+        self.learner = learner
+        # self.wt = wt
+        # self.optimizer = torch.optim.SGD(self.learner.parameters(), lr=0.1)
+        
+    def run(self): 
+        # print(self.wt.requires_grad)  
+        # print(self.learner.wt)
+        
+        wt = self.learner.one_step()
+        grad = self.learner._grad(wt)
+        # wt = self.learner.one_step(self.optimizer)
+
+        return wt
 
 
 class SciPyOpt(object):

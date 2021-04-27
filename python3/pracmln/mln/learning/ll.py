@@ -117,3 +117,7 @@ class LL(AbstractLearner):
             for gf in grounder.itergroundings():
                 truth = gf(world)
                 if truth != 0: values[gf.idx] = values.get(gf.idx, 0) + truth
+
+        print(self.mrf.evidence)
+        print(eworld)
+        print(self._eworld_idx)

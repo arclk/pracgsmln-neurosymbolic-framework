@@ -107,6 +107,7 @@ class BPLL(AbstractLearner):
             self._pls = [self._pl(var.idx, w) for var in self.mrf.variables]
             self._lastw = list(w)
 #             self.write_pls()
+            print(self._pls)
     
     def _f(self, w):
         self._compute_pls(w)
@@ -155,7 +156,9 @@ class BPLL(AbstractLearner):
                         if truth != 0:
                             self._varidx2fidx[var.idx].add(f.idx)
                             self._addstat(f.idx, var.idx, validx, truth)
-                
+        print(self._varidx2fidx)
+        print(self._stat)
+        
                 
 class DPLL(BPLL, DiscriminativeLearner):
     '''

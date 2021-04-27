@@ -5,8 +5,10 @@ Created on Oct 28, 2015
 """
 import os
 
+from pracmln.mln.learning import *
 from pracmln import MLN, Database
 from pracmln import query, learn
+from pracmln.mln.grounding import DefaultGroundingFactory
 from pracmln.mlnlearn import EVIDENCE_PREDS
 import time
 
@@ -97,15 +99,24 @@ def test_GSMLN():
     # print(g)
     
     # print(mln.predicates)
-    mln = MLN(mlnfile='beta_simple.mln', grammar='GSMLNGrammar')
+    mln = MLN(mlnfile='smokers.mln', grammar='GSMLNGrammar')
     # mln.write()
     # print(mln.predicates)
-    dbs = Database.load(mln, dbfiles='beta-train_simple.db')
+    dbs = Database.load(mln, dbfiles='smokers.db')
     # dbs[0].write()
-    print(mln.nnformulas[0].formula)
-    print(mln.nnformulas[0].predicates)
+    # print(mln.formulas[0].neural)
+    # print(mln.formulas[0].cnf())
     # print(mln.nnformulas[0].idx)
+    # print(mln.domains)
+    # print(dbs[0].domains)
+    # mln.formulas[1].print_structure()
 
+    # mrf = mln.ground(dbs[0])
+    # grounder = DefaultGroundingFactory(mrf, simplify=False, unsatfailure=True, verbose=False, cache=0)
+    # for f in grounder.itergroundings():
+    #     print(f)
+    
+    # print((mrf.gndatoms))
     # mln = MLN(grammar='GSMLNGrammar')
     # mln << 'Cancer(&person)'
     # mln << 'Friends(&person,&person)'
@@ -123,11 +134,14 @@ def test_GSMLN():
     # print(mln.formulas[0].cnf())
 
     # this uses the method from base.py
-    # mln.learn(databases=dbs, verbose=True, optimizer='ciao')
+    learned_mln = mln.learn(databases=dbs, method=GSMLN_L, verbose=True)
+    # learned_mln = mln.gsmln_learn(databases=dbs, verbose=True)
+    # mln.gsmln_learn(databases=dbs, verbose=True)
 
     # this uses the method from mlnlearn.py
-    mln.gsmln_learn(method='GSMLN_L', mln=mln, databases=dbs, verbose=True)
+    # learn(method='GSMLN_L', mln=mln, db=dbs, verbose=True).run()
     
+    # learned_mln.write()
 
 
 

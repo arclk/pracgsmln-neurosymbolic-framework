@@ -201,6 +201,7 @@ class AbstractLearner(object):
             opt = optimize.DiagonalNewton(w, self, **params)  
         else:
             opt = optimize.SciPyOpt(optimizer, w, self, **params)        
+            opt = optimize.GSMLNOpt(w, self, **params)        
         w = opt.run()
         self._w = self._add_fixweights(w)
 

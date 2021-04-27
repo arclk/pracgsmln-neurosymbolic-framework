@@ -398,6 +398,7 @@ class MLN(object):
                 mrf.gndatom(gndatom.predname, *gndatom.args)
         evidence = dict([(atom, value) for atom, value in db.evidence.items() if mrf.gndatom(atom) is not None])
         mrf.set_evidence(evidence, erase=False)
+        mrf.build_network()
         return mrf
 
     def update_domain(self, domain):
@@ -476,7 +477,7 @@ class MLN(object):
         # run learner
         if len(dbs) == 1:
             mrf = newmln.ground(dbs[0])
-            # mrf.print_evidence_atoms()
+            # print(mrf.evidence)
             logger.debug('Loading %s-Learner' % method.__name__)
             learner = method(mrf, **params)
         else:
