@@ -182,8 +182,8 @@ class GSMLNOpt(object):
         # print(self.wt.requires_grad)  
         # print(self.learner.wt)
         
-        wt = self.learner.one_step()
-        grad = self.learner._grad(wt)
+        wt = self.learner.train()
+        # grad = self.learner._grad(wt)
         # wt = self.learner.one_step(self.optimizer)
 
         return wt

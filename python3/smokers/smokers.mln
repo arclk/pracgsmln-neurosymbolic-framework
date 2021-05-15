@@ -1,0 +1,8 @@
+Person(id, &person)
+Cancer(id)
+Friends(id,id)
+Smokes(id)
+
+
+1 Smokes(a) => Cancer(a)
+2 Person(a, $pa) ^ Person(b, $pb) ^ Friends(a,b) => (Smokes(a) <=> Smokes(b))

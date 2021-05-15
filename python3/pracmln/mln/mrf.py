@@ -32,7 +32,7 @@ import torch
 
 from dnutils import out, logs
 
-from .network import Network
+from .network import *
 from .database import Database
 from .errors import (MRFValueException, NoSuchDomainError, NoSuchPredicateError)
 from .methods import InferenceMethods
@@ -84,9 +84,16 @@ class MRF(object):
         # AA: add the neural part of the MRF
         self.feat_preds = []
         self.feat_dict = {}
+        self.idx_to_feat = {}
         self.idxnnform = []
         self.nnformulas = torch.nn.ModuleList()
+
+        # Store the feature predicates
+        for pred in mln.predicates:
+            if pred.feature:
+                self.feat_preds.append(pred.name)
         
+
         if isinstance(db, str):
             db = Database.load(self.mln, dbfile=db)
         elif isinstance(db, Database): 
@@ -137,10 +144,10 @@ class MRF(object):
         '''
         Build the neural part of the MRF
         '''
-        # Store the feature predicates
-        for pred in self.predicates:
-            if pred.feature:
-                self.feat_preds.append(pred.name)
+        # # Store the feature predicates
+        # for pred in self.predicates:
+        #     if pred.feature:
+        #         self.feat_preds.append(pred.name)
 
         self.feat_dict, feat_len = self.get_features_dict(self.feat_preds)
 
@@ -153,6 +160,9 @@ class MRF(object):
                     if atom.predname in feat_len.keys():
                         nn_input += feat_len[atom.predname]
                 self.nnformulas.append(Network(nn_input))
+                # self.nnformulas.append(SA_Network())
+            else:
+                self.nnformulas.append(Standard_Formula())
 
 
     def get_features_dict(self, feat_preds):
@@ -165,12 +175,12 @@ class MRF(object):
         feat_dict = {}
         feat_len = {}
 
-        with open('smokers.features', 'r') as file:
+        with open('smokers/smokers.features', 'r') as file:
             features = file.read().split('\n')
 
         for feature in features:
             k.append(feature.split()[0])
-            v.append(feature.split()[1:])
+            v.append(list(map(int, feature.split()[1:])))
 
         temp = dict(zip(k,v))
 
@@ -179,6 +189,7 @@ class MRF(object):
             feat_dict[feat_pred] = {i:temp[i] for i in self.domains[fp.argdoms[fp.feature_idx]]}
             feat_len[feat_pred] = len(feat_dict[feat_pred][self.domains[fp.argdoms[fp.feature_idx]][0]])
         
+        print(feat_len)
         return feat_dict, feat_len
 
 
@@ -421,6 +432,11 @@ class MRF(object):
         '''
         # create and add the ground atom
         gndatom = self.mln.logic.gnd_atom(predname, args, self.mln)
+        
+        # AA
+        if predname in self.feat_preds:
+            self.idx_to_feat[args[0]] = args[1]
+
         if str(gndatom) in self._gndatoms:
             return self._gndatoms[str(gndatom)]
         self._evidence.append(None)

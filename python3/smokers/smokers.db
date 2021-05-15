@@ -1,0 +1,5 @@
+Person(Ann, ANN)
+Person(Bob, BOB)
+Cancer(Ann)
+!Cancer(Bob)
+!Friends(Ann,Bob)
