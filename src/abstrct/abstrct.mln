@@ -1,0 +1,11 @@
+Text(id, &feature)
+Type(id, type)
+Link(id, id)
+
+type = {Claim, Premise}
+
+0 Text(id1, $f1) => Type(id1, type)
+0 Text(id1, $f1) ^ Text(id2, $f2) => Link(id1, id2)
+
+Link(id1, id2) => !Link(id2, id1).
+Type(id1, Claim) ^ Link(id1, id2) => Type(id2, Claim).
