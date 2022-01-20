@@ -218,6 +218,26 @@ class FeaturePredicate(Predicate):
         return '%s(%s)' % (self.name, args)
         
 
+class DatabasePredicate(Predicate):
+
+    def __init__(self, name, argdoms, dbpred):
+        Predicate.__init__(self, name, argdoms)
+        self.dbpred = dbpred
+        
+    def __repr__(self):
+        return '<Database Predicate: %s>' % str(self)
+
+    def _groundatoms(self, mln, domains, values, argdoms, db):
+        for evid in db.evidence.keys():
+            if self.name in evid:
+                _, _, values = mln.logic.parse_literal(evid)
+                yield  mln.logic.gnd_atom(self.name, values, mln)
+
+    def predstr(self, values):
+        args = ','.join(map(str, values))
+        return '%s(%s)' % (self.name, args)
+        
+
 
 
 

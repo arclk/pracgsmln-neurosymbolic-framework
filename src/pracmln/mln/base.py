@@ -30,6 +30,7 @@ from ..logic import FirstOrderLogic, FuzzyLogic
 
 import platform
 from .mrf import MRF
+from .GSMLN_mrf import GSMLN_MRF
 from .errors import MLNParsingError
 from pyparsing import ParseException
 from .constants import HARD, comment_color, predicate_color, weight_color
@@ -37,7 +38,7 @@ import copy
 import os
 from .util import StopWatch, mergedom, fstr, colorize, stripComments
 from .mlnpreds import (Predicate, FuzzyPredicate, SoftFunctionalPredicate,
-    FunctionalPredicate, FeaturePredicate)
+    FunctionalPredicate, FeaturePredicate, DatabasePredicate)
 from .database import Database
 from .learning.multidb import MultipleDatabaseLearner
 import sys
@@ -398,7 +399,7 @@ class MLN(object):
                 mrf.gndatom(gndatom.predname, *gndatom.args)
         evidence = dict([(atom, value) for atom, value in db.evidence.items() if mrf.gndatom(atom) is not None])
         mrf.set_evidence(evidence, erase=False)
-        mrf.build_network()
+        
         return mrf
 
     def update_domain(self, domain):
@@ -412,35 +413,15 @@ class MLN(object):
             self.constant(domname, value)
 
 
-    def gsmln_learn(self, databases, method=BPLL, **params):
+    def gsmln_learn(self, mrf, val, method, **params):
         '''
         ARCANGELO ALBERICO
 
         Lerning function for gsmln
         '''
-        dbs = []
-        for db in databases:
-            if isinstance(db, str):
-                db = Database.load(self, db)
-                if type(db) is list: dbs.extend(db)
-                else: dbs.append(db)
-            elif type(db) is list: dbs.extend(db)
-            else: dbs.append(db)
-        # print(dbs)
-
-        # newmln = self.materialize(*dbs)
-
-        if len(dbs) == 1:
-            mrf = self.ground(dbs[0])
-            # logger.debug('Loading %s-Learner' % method.__name__)
-            learner = GSMLN_L(mrf, **params)
-        # print(mrf.formulas)
-        # mrf_iter = mrf.itergroundings()
-        # for item in mrf_iter:
-        #     print(item.cnf().children[0].vardoms())
-        wt = learner.run(**params)
-        # newmln.weights = wt
-        # return newmln
+        learner = method(mrf, **params)
+        learner.run(**params)
+        
 
 
     def learn(self, databases, method=BPLL, **params):
@@ -795,6 +776,8 @@ def parse_mln(text, searchpaths=['.'], projectpath=None, logic='FirstOrderLogic'
                     elif features:
                         # print(predname, argdoms)
                         pred = FeaturePredicate(predname, argdoms, features, feature_idx)
+                    elif predname == 'Link':
+                        pred = DatabasePredicate(predname, argdoms, True)
                     else:
                         pred = Predicate(predname, argdoms, features)
                         if pseudofuzzy: 

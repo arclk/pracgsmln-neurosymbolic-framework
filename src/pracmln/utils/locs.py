@@ -1,8 +1,10 @@
 import os
 
 import appdirs
-from pracmln._version import APPNAME, APPAUTHOR
+# from pracmln._version import APPNAME, APPAUTHOR
 
+APPNAME = 'pracmln'
+APPAUTHOR = 'danielnyga'
 root = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..'))
 user_data = appdirs.user_data_dir(APPNAME, APPAUTHOR)
 

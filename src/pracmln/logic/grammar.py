@@ -37,6 +37,7 @@ class TreeBuilder(object):
         self.reset()
     
     def trigger(self, a, loc, toks, op):
+        # print(toks)
         if op == 'litgroup':
             negated = False
             if toks[0] == '!' or toks[0] == '*':
@@ -52,6 +53,7 @@ class TreeBuilder(object):
             negated = False
             # AA check on the literal if contains a neural component
             neural = False
+            dbpred = False
             if toks[0] == '!' or toks[0] == '*':
                 if toks[0] == '*':
                     negated = 2
@@ -60,13 +62,16 @@ class TreeBuilder(object):
                 toks = toks[1]
             else:
                 toks = toks[0]
+            # print(toks)
+            if toks[0] == 'Link':
+                dbpred = True
             for el in toks[1]:
                 if "$" in el:
                     neural = True
             if neural:
-                self.stack.append(self.logic.lit(negated, toks[0], toks[1], self.logic.mln, neural))
+                self.stack.append(self.logic.lit(negated, toks[0], toks[1], self.logic.mln, neural, dbpred))
             else:
-                self.stack.append(self.logic.lit(negated, toks[0], toks[1], self.logic.mln, neural))
+                self.stack.append(self.logic.lit(negated, toks[0], toks[1], self.logic.mln, neural, dbpred))
         elif op == '!':
             if len(toks) == 1:
                 formula = self.logic.negation(self.stack[-1:], self.logic.mln)

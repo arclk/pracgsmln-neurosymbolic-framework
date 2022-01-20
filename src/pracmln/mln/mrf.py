@@ -67,7 +67,7 @@ class MRF(object):
         else:
             self.mln = mln
         self._evidence = []
-#         self.evidenceBackup = {}
+        # self.evidenceBackup = {}
         self._variables = {}
         self._variables_by_idx = {} # gnd atom idx -> variable
         self._variables_by_gndatomidx = {} # gnd atom idx
@@ -75,7 +75,7 @@ class MRF(object):
         self._gndatoms_by_idx = {} 
         # get combined domain
         self.domains = mergedom(self.mln.domains, db.domains)
-#         self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior 
+        # self.softEvidence = list(mln.posteriorProbReqs) # constraints on posterior 
                                                         # probabilities are nothing but 
                                                         # soft evidence and can be handled in exactly the same way
         # ground members
@@ -140,7 +140,7 @@ class MRF(object):
         return [f for f in self.formulas if f.weight == HARD]
 
 
-    def build_network(self):
+    def build_network(self, feat_file):
         '''
         Build the neural part of the MRF
         '''
@@ -149,23 +149,31 @@ class MRF(object):
         #     if pred.feature:
         #         self.feat_preds.append(pred.name)
 
-        self.feat_dict, feat_len = self.get_features_dict(self.feat_preds)
+        self.feat_dict, feat_len = self.get_features_dict(self.feat_preds, feat_file)
 
         # Define the modules of the formulas
         for idx, formula in enumerate(self.formulas):
-            if formula.check_neural():
-                self.idxnnform.append(idx)
-                nn_input = 0
-                for atom in formula.atomic_constituents():
-                    if atom.predname in feat_len.keys():
-                        nn_input += feat_len[atom.predname]
-                self.nnformulas.append(Network(nn_input))
-                # self.nnformulas.append(SA_Network())
-            else:
-                self.nnformulas.append(Standard_Formula())
+            if not formula.ishard:
+                if formula.check_neural():
+                    self.idxnnform.append(idx)
+                    nn_input = 0
+                    for atom in formula.atomic_constituents():
+                        if atom.predname in feat_len.keys():
+                            nn_input += feat_len[atom.predname]
+                    # self.nnformulas.append(Network(nn_input))
+                    # self.nnformulas.append(SA_Network())
+                    # self.nnformulas.append(ABSTRCT_Network2())
+                    self.nnformulas.append(MNIST_Network())
+
+                    # if idx == 0:
+                    #     self.nnformulas.append(ABSTRCT_Network1())
+                    # else:
+                    #     self.nnformulas.append(ABSTRCT_Network2())
+                else:
+                    self.nnformulas.append(Standard_Formula())
 
 
-    def get_features_dict(self, feat_preds):
+    def get_features_dict(self, feat_preds, feat_file):
         '''
         computes the dictionaries for each feature predicate with
         respective vectors and the lenghts
@@ -175,7 +183,7 @@ class MRF(object):
         feat_dict = {}
         feat_len = {}
 
-        with open('smokers/smokers.features', 'r') as file:
+        with open(feat_file, 'r') as file:
             features = file.read().split('\n')
 
         for feature in features:
@@ -189,7 +197,7 @@ class MRF(object):
             feat_dict[feat_pred] = {i:temp[i] for i in self.domains[fp.argdoms[fp.feature_idx]]}
             feat_len[feat_pred] = len(feat_dict[feat_pred][self.domains[fp.argdoms[fp.feature_idx]][0]])
         
-        print(feat_len)
+        # print(feat_len)
         return feat_dict, feat_len
 
 
@@ -433,7 +441,7 @@ class MRF(object):
         # create and add the ground atom
         gndatom = self.mln.logic.gnd_atom(predname, args, self.mln)
         
-        # AA
+        # AA: add the argument to the feature dictionary
         if predname in self.feat_preds:
             self.idx_to_feat[args[0]] = args[1]
 

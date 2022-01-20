@@ -32,6 +32,7 @@ from ..mln.constants import HARD, predicate_color, inherit, auto
 from collections import defaultdict
 import itertools
 from functools import reduce
+import torch
 
 logger = logs.getlogger(__name__)
 
@@ -197,6 +198,13 @@ class Logic(object):
         def check_neural(self):
             for literal in self.atomic_constituents():
                 if literal.neural:
+                    return True
+            return False
+
+
+        def check_dbpred(self):
+            for literal in self.atomic_constituents():
+                if literal.dbpred:
                     return True
             return False
 
@@ -379,6 +387,13 @@ class Logic(object):
                                  these values will be used instead.
             :returns:            a generator for all ground formulas
             """
+            # formula_ass = torch.load('mnist/mnist_ground_train_simple.pt')
+            # print(self.idx)
+            # for assignment in formula_ass[self.idx]:
+            #     gf = self.ground(mrf, assignment, simplify, domains)
+            #     yield gf
+            # return
+            
             try:
                 variables = self.vardoms()
             except Exception as e:
@@ -445,6 +460,7 @@ class Logic(object):
             if not variables:
                 gf = self.ground(mrf, assignment, simplify, domains)
                 if gf:
+                    print(variables, assignment)
                     yield gf
                 return
             # ground the first variable...
@@ -981,13 +997,14 @@ class Logic(object):
         Represents a literal.
         """
 
-        def __init__(self, negated, predname, args, mln, neural=False, idx=None):
+        def __init__(self, negated, predname, args, mln, neural=False, dbpred=False, idx=None):
             Formula.__init__(self, mln, idx)
             self.negated = negated
             self.predname = predname
             self.args = list(args)
             # AA argument that indicate if the literal is neural
             self.neural = neural
+            self.dbpred = dbpred
 
 
         @property
@@ -1086,7 +1103,7 @@ class Logic(object):
                 atom = "%s(%s)" % (self.predname, ",".join(args))
                 gndatom = mrf.gndatom(atom)
                 if gndatom is None:
-                    if self.neural:
+                    if self.neural or self.dbpred:
                         return None
                     else:
                         raise Exception('Could not ground "%s". This atom is not among the ground atoms.' % atom)
@@ -1111,13 +1128,13 @@ class Logic(object):
         def _ground_template(self, assignment):
             args = [assignment.get(x, x) for x in self.args]
             if self.negated == 2: # template
-                return [self.mln.logic.lit(False, self.predname, args, self.mln, self.neural), self.mln.logic.lit(True, self.predname, args, self.mln, self.neural)]
+                return [self.mln.logic.lit(False, self.predname, args, self.mln, self.neural, self.dbpred), self.mln.logic.lit(True, self.predname, args, self.mln, self.neural, self.dbpred)]
             else:
-                return [self.mln.logic.lit(self.negated, self.predname, args, self.mln, self.neural)]
+                return [self.mln.logic.lit(self.negated, self.predname, args, self.mln, self.neural, self.dbpred)]
 
 
         def copy(self, mln=None, idx=inherit):
-            return self.mln.logic.lit(self.negated, self.predname, self.args, ifnone(mln, self.mln), self.neural, idx=self.idx if idx is inherit else idx)
+            return self.mln.logic.lit(self.negated, self.predname, self.args, ifnone(mln, self.mln), self.neural, self.dbpred, idx=self.idx if idx is inherit else idx)
 
 
         def truth(self, world):
