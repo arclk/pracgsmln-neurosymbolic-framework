@@ -1,36 +1,37 @@
 
-pracmln -- Markov logic networks in Python
-==========================================
+pracgsmln -- Ground Specific Markov logic networks in Python
+============================================================
 
-pracmln is a toolbox for statistical relational learning and reasoning and provides a pure python implementation of Markov logic networks. pracmln is a statistical relational learning and reasoning system that supports efficient learning and inference in relational domains. pracmln has started as a fork of the ProbCog toolbox and has been extended by latest developments in learning and reasoning by the Institute for Artificial Intelligence  at the University of Bremen, Germany.
-
-
-  * Project Page: http://www.pracmln.org
-  * Lead developer: Daniel Nyga (nyga@cs.uni-bremen.de)
+pracgsmln is a a neuro-symbolic framework combining the nerual networks with the symbolic method of the Markov Logic Networks
 
 
 Installation
 ------------
 
-    $ pip install pracmln
+    $ conda env create -f environment.yml
     
+    $ python test.py -h
+    
+        usage: test.py [-h] [-d DATASET] [-mln MLN] [-db DB] [-f FEATURE] [-ep EPOCHS] [-pr PRETRAIN] [-es EARLYSTOP]
 
-Documentation
+        A neurosymbolic framework for Markov Logic Networks!
+
+        optional arguments:
+          -h, --help                                       show this help message and exit
+          -d DATASET, --dataset DATASET                    This is the dataset directory
+          -mln MLN, --mln MLN                              This is the path for the mln file
+          -db DB, --db DB                                  This is the path for the db file
+          -f FEATURE, --feature FEATURE                    This is the path for the feature file
+          -ep EPOCHS, --epochs EPOCHS                      This is the number of epochs for learning
+          -pr PRETRAIN, --pretrain PRETRAIN                This is the number of epochs for the pretraining
+          -es EARLYSTOP, --earlystop EARLYSTOP             This is the number of epochs of patience for the early stopping
+
+Example
 -------------
+To run MNIST experiment with the reduced dataset for 100 epochs:
 
-pracmln comes with its own sphinx-based documentation. To build it, conduct the following actions:
+    $ python test.py -d mnist -mln mnist.mln -db mnist_train_simple.db -f mnist_train_simple.features -ep 100
 
-    $ cd path/to/pracmln/doc
-    $ make html
+To run abstRCT experiment with the reduced dataset for 200 epochs with a pretraining of 100 epochs and early stopping of 20 epochs:
 
-If you have installed Sphinx, the documentation should be build. Open
-it in your favorite web browser:
-
-    $ firefox _build/html/index.html
-
-Sphinx can be installed with
-
-    $ sudo pip install sphinx sphinxcontrib-bibtex 
-
-
-
+    $ python test.py -d abstrct -mln abstrct.mln -db neoplasm25_train_simple.db -f neoplasm25_train.features -ep 200 -pr 100 -es 20
