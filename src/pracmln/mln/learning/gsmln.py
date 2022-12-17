@@ -60,6 +60,9 @@ class ABSTRCT_LinkNetwork(nn.Module):
         return output
 
 
+class GSMLN_L(AbstractLearner):
+    pass
+
 class GSMLN_MNIST(AbstractLearner):
 
     
