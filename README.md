@@ -1,8 +1,20 @@
+# PyTorch Implementation of Neurosymbolic Framework with Markov Logic Networks (MLNs)
 
-pracgsmln -- Ground Specific Markov logic networks in Python
-============================================================
+This is a PyTorch implementation of a neurosymbolic framework that integrates neural networks with Markov Logic Networks (MLNs). The framework allows for merging symbolic and sub-symbolic reasoning by introducing neural networks to provide grounding-specific weights for different instantiations of the same first-order logic formula in MLNs.
 
-pracgsmln is a a neuro-symbolic framework combining the nerual networks with the symbolic method of the Markov Logic Networks
+## Description
+
+Markov Logic Networks (MLNs) are a powerful approach for combining first-order logic and probabilistic graphical models. However, standard MLNs have limitations in capturing complex interactions between features and handling different types of data. This framework addresses these limitations by assigning different weights to different groundings (instantiations) of the same first-order logic rule, effectively injecting sub-symbolic capabilities into MLNs.
+
+The key features of this framework include:
+
+1. **Grounding-Specific Weights**: Instead of using a single weight for an entire first-order logic formula, the framework learns grounding-specific weights, i.e., different weights for different instantiations of the formula's variables. This allows for capturing complex interactions between features and handling different types of data, such as real-valued attributes.
+
+2. **Neural Network Integration**: The grounding-specific weights are computed using neural networks, which take the instantiated variables (or their feature representations) as input. This integration of neural networks with MLNs enables the framework to leverage the representational power of deep learning.
+
+3. **Scalable Learning**: The framework employs a pseudo-likelihood approach for weight learning, which does not require expensive inference over the model, making it scalable to large datasets.
+
+4. **Modular Design**: The symbolic (first-order logic rules) and sub-symbolic (neural network) components are decoupled, allowing for easy modification or replacement of either component without affecting the other.
 
 
 Installation
